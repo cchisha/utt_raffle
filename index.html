@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Win-A-Starlink Raffle</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@400;600;700&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #FFD700;
+    --bg: #06060e;
+    --white: #fff;
+    --muted: rgba(255,255,255,0.45);
+  }
+
+  html, body {
+    min-height: 100%;
+    background:
+      radial-gradient(ellipse 80% 40% at 50% 0%, rgba(255,200,0,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 60% at 80% 100%, rgba(255,100,0,0.05) 0%, transparent 60%),
+      #06060e;
+    color: var(--white);
+    font-family: 'Rajdhani', sans-serif;
+    overflow-x: hidden;
+  }
+
+  .stars {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.55) 0%, transparent 100%),
+      radial-gradient(1px 1px at 35% 65%, rgba(255,255,255,0.35) 0%, transparent 100%),
+      radial-gradient(1px 1px at 60% 10%, rgba(255,255,255,0.5)  0%, transparent 100%),
+      radial-gradient(1px 1px at 80% 45%, rgba(255,255,255,0.3)  0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 80%, rgba(255,255,255,0.5)  0%, transparent 100%),
+      radial-gradient(1.5px 1.5px at 25% 90%, rgba(255,255,255,0.4) 0%, transparent 100%),
+      radial-gradient(1px 1px at 55% 40%, rgba(255,255,255,0.3)  0%, transparent 100%),
+      radial-gradient(1px 1px at 15% 55%, rgba(255,255,255,0.5)  0%, transparent 100%);
+  }
+
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto;
+    padding: 40px 28px 60px;
+    display: flex; flex-direction: column; align-items: center; gap: 36px;
+  }
+
+  /* HEADER */
+  .header { text-align: center; }
+  .eyebrow {
+    font-size: 13px; letter-spacing: 6px; text-transform: uppercase;
+    color: var(--gold); opacity: 0.7; margin-bottom: 8px;
+  }
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(52px, 8vw, 92px); line-height: 1; letter-spacing: 4px;
+    color: transparent;
+    background: linear-gradient(160deg, #fff 20%, var(--gold) 55%, #fff 90%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    filter: drop-shadow(0 0 40px rgba(255,200,0,0.4));
+  }
+  .sub { font-size: 17px; color: var(--muted); letter-spacing: 2px; margin-top: 6px; }
+
+  /* ── UPLOAD EXPANDED ── */
+  #uploadExpanded {
+    width: 100%; max-width: 560px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px;
+  }
+
+  /* Drop zone — no file input inside, just visual */
+  .drop-area {
+    width: 100%;
+    border: 2px dashed rgba(255,215,0,0.3);
+    border-radius: 16px; padding: 34px 24px;
+    text-align: center; cursor: default;
+    transition: border-color 0.25s, background 0.25s;
+    background: rgba(255,215,0,0.02);
+  }
+  .drop-area.drag { border-color: var(--gold); background: rgba(255,215,0,0.06); }
+  .drop-area .icon { font-size: 36px; display: block; margin-bottom: 10px; }
+  .drop-area p { font-size: 15px; color: var(--muted); line-height: 1.6; }
+  .drop-area strong { color: var(--gold); }
+
+  /* Browse button — a real <label> that triggers hidden file input */
+  .browse-label {
+    display: inline-block; margin-top: 12px;
+    padding: 9px 26px;
+    border: 1px solid rgba(255,215,0,0.45); border-radius: 30px;
+    font-family: 'Rajdhani', sans-serif; font-size: 14px; letter-spacing: 2px;
+    color: var(--gold); cursor: pointer;
+    transition: background 0.2s;
+  }
+  .browse-label:hover { background: rgba(255,215,0,0.1); }
+
+  /* File input hidden, NOT overlapping anything */
+  #fileInput { display: none; }
+
+  /* Column picker row — completely separate from drop area */
+  .col-row {
+    display: none;
+    align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center;
+    width: 100%;
+  }
+  .col-row label { font-size: 14px; letter-spacing: 1px; color: var(--muted); }
+  .col-row select {
+    background: rgba(20,12,0,0.9);
+    border: 1.5px solid rgba(255,215,0,0.5);
+    color: var(--gold);
+    font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 600;
+    padding: 8px 16px; border-radius: 10px;
+    outline: none; cursor: pointer;
+    /* keep native appearance so it's actually usable */
+    -webkit-appearance: auto; appearance: auto;
+  }
+  .col-row select:focus { border-color: var(--gold); }
+
+  #uploadErr { font-size: 14px; color: #ff7070; letter-spacing: 1px; min-height: 18px; }
+
+  .load-btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 16px; letter-spacing: 3px; font-weight: 700;
+    padding: 12px 40px;
+    background: rgba(255,215,0,0.1); border: 1.5px solid rgba(255,215,0,0.45);
+    border-radius: 40px; color: var(--gold);
+    cursor: pointer; transition: background 0.2s, box-shadow 0.2s;
+  }
+  .load-btn:hover:not(:disabled) { background: rgba(255,215,0,0.2); box-shadow: 0 0 22px rgba(255,200,0,0.25); }
+  .load-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ── UPLOAD COLLAPSED (pill) ── */
+  #uploadCollapsed {
+    display: none;
+    align-items: center; gap: 14px;
+    background: rgba(255,215,0,0.06);
+    border: 1.5px solid rgba(255,215,0,0.22);
+    border-radius: 50px; padding: 10px 18px 10px 16px;
+  }
+  .pill-icon { font-size: 20px; }
+  .pill-info { display: flex; flex-direction: column; }
+  .pill-name { color: var(--gold); font-weight: 600; font-size: 14px; letter-spacing: 1px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pill-meta { color: var(--muted); font-size: 12px; letter-spacing: 1px; }
+  .clear-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 30px; color: rgba(255,255,255,0.45);
+    font-family: 'Rajdhani', sans-serif; font-size: 13px; letter-spacing: 2px;
+    padding: 5px 16px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  }
+  .clear-btn:hover { border-color: rgba(255,80,80,0.5); color: #ff7070; background: rgba(255,50,50,0.07); }
+
+  /* ── DRUM ── */
+  .drum-panel { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+
+  .drum-wrap {
+    position: relative;
+    background: rgba(0,0,0,0.6);
+    border: 2px solid rgba(255,215,0,0.2);
+    border-radius: 20px; width: 100%; max-width: 680px; overflow: hidden;
+    box-shadow: 0 0 60px rgba(255,200,0,0.1), inset 0 0 40px rgba(0,0,0,0.4);
+  }
+  .drum-track {
+    height: 116px; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  .drum-track::before, .drum-track::after {
+    content: ''; position: absolute; left: 0; right: 0; height: 38px; z-index: 2; pointer-events: none;
+  }
+  .drum-track::before { top: 0;    background: linear-gradient(to bottom, rgba(0,0,0,0.85), transparent); }
+  .drum-track::after  { bottom: 0; background: linear-gradient(to top,   rgba(0,0,0,0.85), transparent); }
+
+  #drumNumber {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 68px; letter-spacing: 10px;
+    color: var(--gold); text-align: center;
+    filter: drop-shadow(0 0 20px rgba(255,200,0,0.55));
+  }
+  #drumNumber.idle     { color: rgba(255,215,0,0.18); filter: none; }
+  #drumNumber.rolling  { animation: flicker 0.07s infinite steps(1); }
+  #drumNumber.revealed { animation: popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+
+  @keyframes flicker { 0%{opacity:1} 50%{opacity:.65} 100%{opacity:1} }
+  @keyframes popIn   { 0%{transform:scale(.5);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+
+  .drum-scanline {
+    position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    height: 2px; background: linear-gradient(90deg, transparent, rgba(255,215,0,0.35), transparent);
+    pointer-events: none;
+  }
+  .drum-shine {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(135deg, rgba(255,255,255,0.025) 0%, transparent 50%);
+  }
+  .drum-label {
+    font-size: 11px; letter-spacing: 5px; text-transform: uppercase;
+    color: rgba(255,215,0,0.32); text-align: center; padding: 5px 0 14px;
+  }
+
+  .winner-count { font-size: 15px; color: var(--muted); letter-spacing: 2px; text-align: center; }
+  .winner-count span { color: var(--gold); font-weight: 700; }
+
+  .spin-btn {
+    font-family: 'Bebas Neue', sans-serif; font-size: 28px; letter-spacing: 4px;
+    padding: 20px 68px;
+    background: linear-gradient(135deg, #c8900a 0%, var(--gold) 45%, #e6a800 80%, #c8900a 100%);
+    border: none; border-radius: 60px; color: #1a0e00;
+    cursor: pointer; position: relative; overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 0 30px rgba(255,180,0,0.35), 0 6px 24px rgba(0,0,0,0.5);
+  }
+  .spin-btn::before {
+    content: ''; position: absolute; top: 0; left: -75%; width: 50%; height: 100%;
+    background: linear-gradient(120deg, transparent, rgba(255,255,255,0.28), transparent);
+    transform: skewX(-20deg); transition: left 0.5s;
+  }
+  .spin-btn:hover::before { left: 130%; }
+  .spin-btn:hover:not(:disabled) { transform: scale(1.04); box-shadow: 0 0 50px rgba(255,180,0,0.55), 0 8px 32px rgba(0,0,0,0.5); }
+  .spin-btn:active:not(:disabled) { transform: scale(0.97); }
+  .spin-btn:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+
+  /* ── WINNERS ── */
+  .winners-section { width: 100%; }
+  .winners-title {
+    font-family: 'Bebas Neue', sans-serif; font-size: 24px; letter-spacing: 4px;
+    color: rgba(255,215,0,0.55); text-align: center; margin-bottom: 20px;
+  }
+  .winners-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+
+  .winner-card {
+    border: 1.5px solid rgba(255,215,0,0.1); border-radius: 16px; padding: 22px 16px;
+    background: rgba(255,215,0,0.025); text-align: center; position: relative; overflow: hidden;
+    min-height: 114px; display: flex; flex-direction: column;
+    justify-content: center; align-items: center; gap: 6px;
+  }
+  .slot-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 34px; color: rgba(255,255,255,0.06); letter-spacing: 3px;
+  }
+  .winner-card.filled {
+    border-color: rgba(255,215,0,0.45); background: rgba(255,215,0,0.07);
+    animation: cardIn 0.55s cubic-bezier(0.34,1.4,0.64,1) forwards;
+  }
+  .winner-card.filled::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(255,215,0,0.13) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  @keyframes cardIn { 0%{transform:scale(.65) rotateY(25deg);opacity:0} 100%{transform:scale(1) rotateY(0deg);opacity:1} }
+  .winner-badge { font-size: 11px; letter-spacing: 4px; text-transform: uppercase; color: rgba(255,215,0,0.55); }
+  .winner-trophy { font-size: 22px; filter: drop-shadow(0 0 8px rgba(255,200,0,0.65)); }
+  .winner-number {
+    font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 3px;
+    color: var(--gold); filter: drop-shadow(0 0 10px rgba(255,200,0,0.45));
+  }
+
+  /* END ROW */
+  .end-row {
+    display: none; flex-direction: column; align-items: center; gap: 16px; text-align: center;
+  }
+  .all-done {
+    font-family: 'Bebas Neue', sans-serif; font-size: 34px; letter-spacing: 6px; color: var(--gold);
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+  @keyframes glow { from{filter:drop-shadow(0 0 8px rgba(255,200,0,.4))} to{filter:drop-shadow(0 0 28px rgba(255,200,0,.9))} }
+  .restart-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .rst-btn {
+    font-family: 'Rajdhani', sans-serif; font-size: 15px; letter-spacing: 3px; text-transform: uppercase;
+    padding: 11px 32px; background: transparent; border-radius: 40px; cursor: pointer; transition: all 0.2s;
+  }
+  .rst-btn.outline { border: 1px solid rgba(255,255,255,0.18); color: var(--muted); }
+  .rst-btn.outline:hover { border-color: rgba(255,255,255,0.45); color: var(--white); }
+  .rst-btn.gold-outline { border: 1px solid rgba(255,215,0,0.45); color: var(--gold); background: rgba(255,215,0,0.07); }
+  .rst-btn.gold-outline:hover { background: rgba(255,215,0,0.16); box-shadow: 0 0 20px rgba(255,200,0,0.2); }
+
+  /* PULSE RING */
+  .pulse-ring {
+    position: absolute; inset: 0; border-radius: 14px;
+    border: 2px solid rgba(255,215,0,0.5);
+    animation: pring 0.9s ease-out forwards; pointer-events: none;
+  }
+  @keyframes pring { 0%{transform:scale(1);opacity:.8} 100%{transform:scale(1.07);opacity:0} }
+
+  /* CONFETTI */
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 100; overflow: hidden; }
+  .cp { position: absolute; border-radius: 2px; opacity: 0; animation: fall linear forwards; }
+  @keyframes fall { 0%{transform:translateY(-20px) rotate(0deg);opacity:1} 100%{transform:translateY(110vh) rotate(720deg);opacity:0} }
+
+  /* FLASH */
+  .flash { position: fixed; inset: 0; background: rgba(255,220,0,0.1); pointer-events: none; z-index: 50; animation: fl .35s ease-out forwards; }
+  @keyframes fl { 0%{opacity:1} 100%{opacity:0} }
+</style>
+</head>
+<body>
+<div class="stars"></div>
+<div id="confetti"></div>
+
+<div class="wrapper">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="eyebrow">✦ Official Live Draw ✦</div>
+    <h1>WIN-A-STARLINK</h1>
+    <div class="sub">5 Lucky Winners · 1 Starlink Per Winner</div>
+  </div>
+
+  <!-- UPLOAD: EXPANDED -->
+  <div id="uploadExpanded" style="width:100%;max-width:560px;display:flex;flex-direction:column;align-items:center;gap:18px;">
+
+    <div class="drop-area" id="dropArea">
+      <span class="icon">📂</span>
+      <p><strong>Drag &amp; drop your Excel file here</strong><br>or click the button below to browse</p>
+      <label class="browse-label" for="fileInput">Browse File</label>
+    </div>
+
+    <!-- Hidden file input — NOT inside or overlapping any interactive element -->
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+
+    <!-- Column picker — fully separate from drop area -->
+    <div class="col-row" id="colRow">
+      <label for="colSelect">Phone number column:</label>
+      <select id="colSelect"></select>
+    </div>
+
+    <div id="uploadErr"></div>
+
+    <button class="load-btn" id="loadBtn" disabled>LOAD ENTRIES</button>
+  </div>
+
+  <!-- UPLOAD: COLLAPSED (pill shown after load) -->
+  <div id="uploadCollapsed" style="display:none;align-items:center;gap:14px;background:rgba(255,215,0,0.06);border:1.5px solid rgba(255,215,0,0.22);border-radius:50px;padding:10px 18px 10px 16px;">
+    <span class="pill-icon">✅</span>
+    <div class="pill-info">
+      <span class="pill-name" id="pillName">file.xlsx</span>
+      <span class="pill-meta" id="pillMeta">0 entries loaded</span>
+    </div>
+    <button class="clear-btn" id="clearBtn">✕ Clear file</button>
+  </div>
+
+  <!-- DRUM -->
+  <div class="drum-panel">
+    <div class="drum-wrap">
+      <div class="drum-track">
+        <div id="drumNumber" class="idle">TAP SPIN</div>
+        <div class="drum-scanline"></div>
+      </div>
+      <div class="drum-shine"></div>
+      <div class="drum-label">🛰 Starlink Raffle Draw</div>
+    </div>
+    <div class="winner-count" id="winnerCount"><span>0</span> of <span>5</span> winners selected</div>
+    <button class="spin-btn" id="spinBtn" disabled>🛰 SPIN TO WIN 🛰</button>
+  </div>
+
+  <!-- END -->
+  <div class="end-row" id="endRow">
+    <div class="all-done">🛰 All 5 Starlink Winners! 🛰</div>
+    <div class="restart-row">
+      <button class="rst-btn gold-outline" id="newDrawBtn">↺ New Draw (same file)</button>
+      <button class="rst-btn outline"       id="newFileBtn">📂 Load Different File</button>
+    </div>
+  </div>
+
+  <!-- WINNERS BOARD -->
+  <div class="winners-section">
+    <div class="winners-title" style="letter-spacing:5px">Winners Board</div>
+    <div class="winners-grid" id="winnersGrid"></div>
+  </div>
+
+</div>
+
+<script>
+const TOTAL = 5;
+
+let allNumbers   = [];
+let pool         = [];
+let winners      = [];
+let isSpinning   = false;
+let sheetData    = null;
+
+/* DOM */
+const $  = id => document.getElementById(id);
+const dropArea       = $('dropArea');
+const fileInput      = $('fileInput');
+const colRow         = $('colRow');
+const colSelect      = $('colSelect');
+const uploadErr      = $('uploadErr');
+const loadBtn        = $('loadBtn');
+const uploadExpanded = $('uploadExpanded');
+const uploadCollapsed= $('uploadCollapsed');
+const pillName       = $('pillName');
+const pillMeta       = $('pillMeta');
+const clearBtn       = $('clearBtn');
+const drumNumber     = $('drumNumber');
+const spinBtn        = $('spinBtn');
+const winnerCount    = $('winnerCount');
+const winnersGrid    = $('winnersGrid');
+const endRow         = $('endRow');
+const newDrawBtn     = $('newDrawBtn');
+const newFileBtn     = $('newFileBtn');
+const confettiEl     = $('confetti');
+
+/* ── FILE ── */
+dropArea.addEventListener('dragover',  e => { e.preventDefault(); dropArea.classList.add('drag'); });
+dropArea.addEventListener('dragleave', ()  => dropArea.classList.remove('drag'));
+dropArea.addEventListener('drop', e => {
+  e.preventDefault(); dropArea.classList.remove('drag');
+  if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); });
+
+function readFile(file) {
+  uploadErr.textContent = '';
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      const wb   = XLSX.read(evt.target.result, { type: 'binary' });
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!data || data.length < 2) { showErr('File is empty or has no data rows.'); return; }
+      sheetData = { file, data };
+
+      const headers = data[0].map((h, i) => h ? String(h) : `Column ${i+1}`);
+      colSelect.innerHTML = '';
+      headers.forEach((h, i) => {
+        const o = document.createElement('option');
+        o.value = i; o.textContent = h;
+        colSelect.appendChild(o);
+      });
+
+      // auto-pick phone column
+      const pi = headers.findIndex(h => /phone|mobile|cell|number|tel|contact/i.test(h));
+      if (pi >= 0) colSelect.value = pi;
+
+      colRow.style.display = 'flex';
+      loadBtn.disabled = false;
+    } catch { showErr('Could not read file. Use .xlsx or .csv'); }
+  };
+  reader.readAsBinaryString(file);
+}
+
+function showErr(msg) { uploadErr.textContent = msg; uploadErr.style.color = '#ff7070'; }
+
+loadBtn.addEventListener('click', () => {
+  if (!sheetData) return;
+  const ci  = parseInt(colSelect.value);
+  const nums = extractCol(sheetData.data, ci);
+  if (nums.length < TOTAL) { showErr(`Need at least ${TOTAL} entries. Found ${nums.length}.`); return; }
+
+  allNumbers = nums;
+  const colName = colSelect.options[colSelect.selectedIndex]?.textContent || '';
+  collapseUpload(sheetData.file.name, nums.length, colName);
+  startDraw();
+});
+
+function extractCol(data, ci) {
+  return data.slice(1)
+    .map(r => r[ci])
+    .filter(v => v !== undefined && v !== null && String(v).trim() !== '')
+    .map(v => String(v).trim());
+}
+
+/* ── COLLAPSE / EXPAND ── */
+function collapseUpload(name, count, colName) {
+  uploadExpanded.style.display  = 'none';
+  uploadCollapsed.style.display = 'flex';
+  pillName.textContent = name;
+  pillMeta.textContent = `${count} entries · "${colName}"`;
+}
+
+function expandUpload() {
+  uploadCollapsed.style.display = 'none';
+  uploadExpanded.style.display  = 'flex';
+  fileInput.value  = '';
+  colRow.style.display = 'none';
+  loadBtn.disabled = true;
+  uploadErr.textContent = '';
+  sheetData = null;
+}
+
+clearBtn.addEventListener('click', () => {
+  allNumbers = []; pool = []; winners = [];
+  expandUpload(); hardReset();
+});
+
+/* ── DRAW ── */
+function startDraw() { pool = [...allNumbers]; resetUI(); }
+
+function resetUI() {
+  winners = []; pool = [...allNumbers]; isSpinning = false;
+  drumNumber.textContent = 'TAP SPIN';
+  drumNumber.className = 'idle';
+  endRow.style.display = 'none';
+  spinBtn.disabled = false;
+  updateCount(); buildGrid();
+}
+
+function hardReset() {
+  winners = []; pool = []; isSpinning = false;
+  drumNumber.textContent = 'TAP SPIN';
+  drumNumber.className = 'idle';
+  endRow.style.display = 'none';
+  spinBtn.disabled = true;
+  updateCount(); buildGrid();
+}
+
+newDrawBtn.addEventListener('click', () => { pool = [...allNumbers]; resetUI(); });
+newFileBtn.addEventListener('click', () => { expandUpload(); hardReset(); });
+
+/* ── GRID ── */
+function buildGrid() {
+  winnersGrid.innerHTML = '';
+  for (let i = 0; i < TOTAL; i++) {
+    const c = document.createElement('div');
+    c.className = 'winner-card';
+    c.id = `card-${i}`;
+    c.innerHTML = winners[i]
+      ? winnerHTML(winners[i], i)
+      : `<span class="slot-num">${i+1}</span>`;
+    if (winners[i]) c.classList.add('filled');
+    winnersGrid.appendChild(c);
+  }
+}
+
+function winnerHTML(num, i) {
+  return `<div class="winner-badge">Winner #${i+1}</div>
+<span class="winner-trophy">🛰️</span>
+<div class="winner-number">${num}</div>`;
+}
+
+function updateCount() {
+  winnerCount.innerHTML = `<span>${winners.length}</span> of <span>${TOTAL}</span> winners selected`;
+}
+
+/* ── SPIN ── */
+spinBtn.addEventListener('click', () => {
+  if (isSpinning || winners.length >= TOTAL || !pool.length) return;
+  doSpin();
+});
+
+function doSpin() {
+  isSpinning = true; spinBtn.disabled = true;
+  drumNumber.className = 'rolling';
+
+  const available = pool.filter(n => !winners.includes(n));
+  if (!available.length) { isSpinning = false; return; }
+
+  let elapsed = 0;
+  const dur = 2800, tick = 70;
+  const iv = setInterval(() => {
+    drumNumber.textContent = available[Math.floor(Math.random() * available.length)];
+    elapsed += tick;
+    if (elapsed >= dur) {
+      clearInterval(iv);
+      const winner = available[Math.floor(Math.random() * available.length)];
+      drumNumber.textContent = winner;
+      drumNumber.className = 'revealed';
+      doReveal(winner);
+    }
+  }, tick);
+}
+
+function doReveal(number) {
+  winners.push(number);
+  pool = pool.filter(n => n !== number);
+  const idx = winners.length - 1;
+
+  doFlash(); doConfetti(false);
+
+  setTimeout(() => {
+    const card = $(`card-${idx}`);
+    if (card) {
+      const ring = document.createElement('div');
+      ring.className = 'pulse-ring';
+      card.appendChild(ring);
+      card.innerHTML = winnerHTML(number, idx);
+      card.classList.add('filled');
+      setTimeout(() => { if (ring.parentNode) ring.remove(); }, 950);
+    }
+    updateCount();
+    if (winners.length >= TOTAL) {
+      endRow.style.display = 'flex'; doConfetti(true);
+    } else {
+      spinBtn.disabled = false;
+    }
+    isSpinning = false;
+  }, 600);
+}
+
+/* ── FX ── */
+function doFlash() {
+  const el = document.createElement('div'); el.className = 'flash';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 400);
+}
+
+function doConfetti(burst) {
+  const colors = ['#FFD700','#FFA500','#fff','#FF6B6B','#6BFFB8','#6BC5FF'];
+  const n = burst ? 90 : 42;
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const el = document.createElement('div'); el.className = 'cp';
+      el.style.cssText = `left:${Math.random()*100}vw;top:-10px;width:${Math.random()*8+5}px;height:${Math.random()*8+5}px;background:${colors[Math.floor(Math.random()*colors.length)]};border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${Math.random()*2+1.5}s`;
+      confettiEl.appendChild(el);
+      setTimeout(() => el.remove(), 4000);
+    }, i * 22);
+  }
+}
+
+/* INIT */
+buildGrid(); updateCount();
+</script>
+</body>
+</html>
