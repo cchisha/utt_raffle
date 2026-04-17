@@ -302,7 +302,7 @@
   <div class="header">
     <div class="eyebrow">✦ Official Live Draw ✦</div>
     <h1>WIN-A-STARLINK</h1>
-    <div class="sub">5 Lucky Winners · 1 Starlink Per Winner</div>
+    <div class="sub">3 Lucky Winners · 1 Starlink Per Winner</div>
   </div>
 
   <!-- UPLOAD: EXPANDED -->
@@ -332,10 +332,10 @@
   <div id="uploadCollapsed" style="display:none;align-items:center;gap:14px;background:rgba(255,215,0,0.06);border:1.5px solid rgba(255,215,0,0.22);border-radius:50px;padding:10px 18px 10px 16px;">
     <span class="pill-icon">✅</span>
     <div class="pill-info">
-      <span class="pill-name" id="pillName">file.xlsx</span>
+      <span class="pill-name" id="pillName">🛰 Ready to Run Draw</span>
       <span class="pill-meta" id="pillMeta">0 entries loaded</span>
     </div>
-    <button class="clear-btn" id="clearBtn">✕ Clear file</button>
+    <button class="clear-btn" id="clearBtn">↺ Reset</button>
   </div>
 
   <!-- DRUM -->
@@ -370,7 +370,7 @@
 </div>
 
 <script>
-const TOTAL = 5;
+const TOTAL = 3;
 
 let allNumbers   = [];
 let pool         = [];
@@ -464,7 +464,7 @@ function extractCol(data, ci) {
 function collapseUpload(name, count, colName) {
   uploadExpanded.style.display  = 'none';
   uploadCollapsed.style.display = 'flex';
-  pillName.textContent = name;
+  pillName.textContent = "🛰 Ready to Run Draw";
   pillMeta.textContent = `${count} entries · "${colName}"`;
 }
 
